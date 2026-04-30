@@ -103,7 +103,7 @@ kotlin {
 android.applicationVariants.all {
     outputs.all {
         (this as BaseVariantOutputImpl).outputFileName =
-            "皮皮虾助手 ${versionName}.apk"
+            "皮皮虾助手-v${versionName}-release.apk"
     }
 }
 
