@@ -26,12 +26,9 @@
 
 - `app/`：主模块源码
 - `xposed-modern-api101-entry/`：modern API 101 入口
-- `xposed-modern-api100-entry/`：modern API 100 相关兼容入口/桥接代码
-- `xposed-modern-api100-stubs/`：API 100 stub
 - `buildSrc/`：Gradle 版本与构建辅助
 - `docs/`：架构与适配分析文档
 - `tools/`：本地验证脚本
-- `res/`：已构建的发布产物
 
 ## 构建
 
@@ -42,11 +39,10 @@
 Release APK 输出：
 
 - `app/build/outputs/apk/release/`
-- 仓库归档副本：`res/`
 
-## 已归档版本
+## 下载
 
-见 [res/README.md](res/README.md)。
+已构建版本通过 GitHub Releases 分发。
 
 ## 许可
 
