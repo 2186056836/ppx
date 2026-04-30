@@ -42,7 +42,7 @@ Release APK 输出：
 
 ## 下载
 
-已构建版本通过 [Releases](https://github.com/2186056836/ppx/releases) 分发。
+已构建版本通过 [GitHub Releases 下载页](https://github.com/2186056836/ppx/releases) 分发。
 
 ## 许可
 
