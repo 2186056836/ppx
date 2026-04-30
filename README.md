@@ -36,6 +36,12 @@
 ./gradlew.bat :app:assembleRelease --no-daemon
 ```
 
+如果先在源码目录开发，再在镜像目录构建，先执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\sync-build-mirror.ps1
+```
+
 Release APK 输出：
 
 - `app/build/outputs/apk/release/`
