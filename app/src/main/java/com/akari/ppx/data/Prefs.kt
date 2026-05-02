@@ -3,6 +3,7 @@
 package com.akari.ppx.data
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -31,13 +32,58 @@ object Prefs {
     inline fun <reified T> set(key: String, value: T) {
         scope.launch {
             dataStore.edit { prefs -> prefs[getPrefsKey(key)] = value }
+            syncRemoteValue(key, value)
+            ModuleSharedPrefs.mirror(key, value)
         }
     }
 
     inline fun <reified T> setBlocking(key: String, value: T) {
         runBlocking(scope.coroutineContext) {
             dataStore.edit { prefs -> prefs[getPrefsKey(key)] = value }
+            syncRemoteValue(key, value)
+            ModuleSharedPrefs.mirror(key, value)
         }
+    }
+
+    fun syncMirror() {
+        runBlocking(scope.coroutineContext) {
+            ModuleSharedPrefs.syncAll(dsData.first())
+        }
+    }
+
+    fun syncRemote(sharedPreferences: SharedPreferences? = FrameworkScopeState.remotePreferences()) {
+        val remote = sharedPreferences ?: return
+        runBlocking(scope.coroutineContext) {
+            val editor = remote.edit().clear()
+            dsData.first().asMap().forEach { (key, value) ->
+                when (value) {
+                    is String -> editor.putString(key.name, value)
+                    is Boolean -> editor.putBoolean(key.name, value)
+                    is Int -> editor.putInt(key.name, value)
+                    is Long -> editor.putLong(key.name, value)
+                    is Float -> editor.putFloat(key.name, value)
+                    is Set<*> -> editor.putStringSet(key.name, value.filterIsInstance<String>().toSet())
+                    else -> editor.putString(key.name, value.toString())
+                }
+            }
+            editor.apply()
+        }
+    }
+
+    @PublishedApi
+    internal fun syncRemoteValue(key: String, value: Any?) {
+        val editor = FrameworkScopeState.remotePreferences()?.edit() ?: return
+        when (value) {
+            null -> editor.remove(key)
+            is String -> editor.putString(key, value)
+            is Boolean -> editor.putBoolean(key, value)
+            is Int -> editor.putInt(key, value)
+            is Long -> editor.putLong(key, value)
+            is Float -> editor.putFloat(key, value)
+            is Set<*> -> editor.putStringSet(key, value.filterIsInstance<String>().toSet())
+            else -> editor.putString(key, value.toString())
+        }
+        editor.apply()
     }
 
     inline fun <reified T> getPrefsKey(key: String): Preferences.Key<T> =

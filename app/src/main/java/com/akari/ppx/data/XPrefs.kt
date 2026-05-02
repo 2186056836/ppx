@@ -1,60 +1,44 @@
 package com.akari.ppx.data
 
-import android.net.Uri
-import com.akari.ppx.data.Const.ALLOW_STARTUP_HINT
-import com.akari.ppx.data.Const.CP_URI
+import android.content.SharedPreferences
+import com.akari.ppx.BuildConfig.APPLICATION_ID
+import com.akari.ppx.data.Const.PREFS_NAME
+import com.akari.ppx.utils.HookRuntime
+import com.akari.ppx.utils.Log
 import com.akari.ppx.utils.checkUnless
-import com.akari.ppx.utils.showToast
-import com.akari.ppx.xp.Init.ctx
+import de.robv.android.xposed.XSharedPreferences
 
 object XPrefs {
-    enum class Status {
-        PRIMITIVE,
-        ERROR,
-        DISMISSED,
+    @PublishedApi
+    internal val sharedPrefs by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        XSharedPreferences(APPLICATION_ID, PREFS_NAME)
     }
 
-    var status = Status.PRIMITIVE
+    @PublishedApi
+    internal fun prefs(): XSharedPreferences = sharedPrefs.also {
+        runCatching { it.reload() }.onFailure { error ->
+            Log.e("XPrefs reload failed")
+            Log.e(error)
+        }
+        runCatching {
+            Log.i("XPrefs file=${it.file} canRead=${it.file?.canRead()}")
+        }.onFailure(Log::e)
+    }
+
+    @PublishedApi
+    internal fun remotePrefs(): SharedPreferences? = HookRuntime.remotePreferences()?.also {
+        Log.i("XPrefs remote preferences available")
+    }
 
     inline operator fun <reified T> invoke(key: String, defValue: T? = null): T =
-        Uri.parse(CP_URI).let {
-            ctx.contentResolver.run {
-                val dealError = { t: Throwable ->
-                    when (status) {
-                        Status.PRIMITIVE -> {
-                            if (t is IllegalArgumentException)
-                                status = Status.ERROR
-                        }
-                        Status.ERROR -> {
-                            showToast(ALLOW_STARTUP_HINT)
-                            status = Status.DISMISSED
-                        }
-                        Status.DISMISSED -> {
-                            /* Do Nothing */
-                        }
-                    }
-                }
-                when (T::class.java) {
-                    String::class.java -> runCatching {
-                        call(it, PrefsType.STRING.method, key, null)
-                            ?.getString(PrefsType.STRING.key, (defValue ?: "") as String)
-                    }.getOrElse {
-                        dealError(it)
-                        ""
-                    }
-                    java.lang.Boolean::class.java -> runCatching {
-                        call(it, PrefsType.BOOLEAN.method, key, null)
-                            ?.getBoolean(PrefsType.BOOLEAN.key, (defValue ?: false) as Boolean)
-                    }.getOrElse {
-                        dealError(it)
-                        false
-                    }
-                    else -> null
-                } as T
-            }
-        }
+        when (T::class.java) {
+            String::class.java -> remotePrefs()?.getString(key, (defValue ?: "") as String)
+                ?: prefs().getString(key, (defValue ?: "") as String) ?: ""
+            java.lang.Boolean::class.java -> remotePrefs()?.getBoolean(key, (defValue ?: false) as Boolean)
+                ?: prefs().getBoolean(key, (defValue ?: false) as Boolean)
+            else -> null
+        } as T
 
     inline fun checkUnless(key: String, unsatisfiedAction: () -> Unit) =
         XPrefs<Boolean>(key).checkUnless(true) { unsatisfiedAction() }
-
 }

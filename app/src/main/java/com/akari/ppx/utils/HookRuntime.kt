@@ -1,5 +1,6 @@
 package com.akari.ppx.utils
 
+import android.content.SharedPreferences
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XC_MethodReplacement
 import de.robv.android.xposed.XposedBridge
@@ -97,16 +98,28 @@ object HookRuntime {
     @Volatile
     private var backend: HookBackend = LegacyHookBackend
 
+    @Volatile
+    private var remotePreferences: SharedPreferences? = null
+
     fun useLegacy() {
         backend = LegacyHookBackend
+        remotePreferences = null
     }
 
     fun useModern(module: Any, apiVersion: Int) {
         require(apiVersion >= 101) { "Modern runtime requires libxposed API 101+, got $apiVersion" }
         backend = ModernHookBackend(module)
+        remotePreferences = runCatching {
+            module.callMethod("getRemotePreferences", "settings") as? SharedPreferences
+        }.onFailure {
+            Log.e("HookRuntime getRemotePreferences failed")
+            Log.e(it)
+        }.getOrNull()
     }
 
     internal fun backend(): HookBackend = backend
+
+    fun remotePreferences(): SharedPreferences? = remotePreferences
 }
 
 private object LegacyHookBackend : HookBackend {

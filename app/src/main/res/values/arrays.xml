@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string-array name="xposed_scope">
-        <item>com.akari.ppx</item>
         <item>com.sup.android.superb</item>
+        <item>com.akari.ppx</item>
     </string-array>
 </resources>

@@ -12,7 +12,7 @@ import java.net.URL
 object VersionChecker {
     val targetVersion: String
         get() = runCatching {
-            context.packageManager.getPackageInfo(TARGET_APP_ID, 0).versionName
+            context.packageManager.getPackageInfo(TARGET_APP_ID, 0).versionName ?: "(未知)"
         }.getOrDefault("(未知)")
 
     suspend fun getUpdates() = runCatching {

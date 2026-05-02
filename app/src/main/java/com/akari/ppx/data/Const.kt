@@ -9,10 +9,6 @@ object Const {
     const val PREFS_NAME = "settings"
     const val CACHE_NAME = ".cache620v2"
     const val CP_URI = "content://com.akari.ppx.CP/"
-    const val MODULE_ACTIVE_KEY = "_module_active"
-    const val MODULE_ACTIVE_TS_KEY = "_module_active_ts"
-    const val MODULE_ACTIVE_SOURCE_KEY = "_module_active_source"
-    const val MODULE_ACTIVE_TTL_MS = 10 * 60 * 1000L
     const val TAB_SCHEMA = "akari://open_zs"
     const val TELEGRAM_URI = "https://t.me/akari_ppx"
     const val QQ_GROUP_URI =
@@ -22,7 +18,7 @@ object Const {
         "alipayqr://platformapi/startapp?saId=10000007&qrcode=https://qr.alipay.com/fkx16213vf1yql4hjgu1k5c"
     private const val BASE_URI = "https://qvq.su/ppx"
     const val LATEST_URI = "$BASE_URI/latest.json"
-    const val CURRENT_URI = "$BASE_URI/${VERSION_NAME}.json"
+    val CURRENT_URI = "$BASE_URI/${VERSION_NAME}.json"
     const val AUTHOR_ID = 50086989143L
     const val CHANNEL_KEY = "channels"
     const val ALLOW_STARTUP_HINT = "请给予助手后台运行权限，否则功能将不会生效"

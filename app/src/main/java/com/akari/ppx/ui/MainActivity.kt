@@ -13,11 +13,14 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.*
 import androidx.compose.material.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -33,18 +36,13 @@ import com.akari.ppx.ui.screen.PreferenceScreen
 import com.akari.ppx.ui.theme.BaseTheme
 import com.akari.ppx.ui.theme.GREY
 import com.akari.ppx.ui.widget.StatusCardWidget
-import com.google.accompanist.pager.HorizontalPager
-import com.google.accompanist.pager.rememberPagerState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import com.akari.ppx.BuildConfig.APPLICATION_ID
 import com.akari.ppx.R
-import com.akari.ppx.data.Const.MODULE_ACTIVE_KEY
-import com.akari.ppx.data.Const.MODULE_ACTIVE_SOURCE_KEY
-import com.akari.ppx.data.Const.MODULE_ACTIVE_TS_KEY
-import com.akari.ppx.data.Const.MODULE_ACTIVE_TTL_MS
 import com.akari.ppx.data.Const.TARGET_APP_ID
-import com.akari.ppx.data.Prefs
+import com.akari.ppx.data.FrameworkScopeState
+import com.akari.ppx.data.HookStatusImpl
 import com.akari.ppx.data.model.VersionWrapper
 import com.akari.ppx.data.prefTabs
 import com.akari.ppx.ui.screen.AboutScreen
@@ -59,12 +57,20 @@ class MainActivity : ComponentActivity() {
     private lateinit var scaffoldState: ScaffoldState
     private lateinit var scope: CoroutineScope
     private lateinit var fabVisible: MutableState<Boolean>
+    private val isActiveState = mutableStateOf(false)
+    private val scopeListener = object : FrameworkScopeState.Listener {
+        override fun onStateChanged(active: Boolean?) {
+            runOnUiThread {
+                isActiveState.value = active ?: isLegacyHookActive()
+            }
+        }
+    }
     private var lastScrollOffset = 0
     private var currentScrollOffset = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val isActive = isModuleActive(this@MainActivity)
+        isActiveState.value = isModuleActive()
         setContent {
             BaseTheme {
                 scaffoldState = rememberScaffoldState()
@@ -117,7 +123,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 ) {
-                    val state = rememberPagerState()
+                    val state = rememberPagerState(pageCount = { prefTabs.size })
                     currentIndex = state.currentPage
                     Column(Modifier.fillMaxSize()) {
                         TabRow(
@@ -158,7 +164,6 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         HorizontalPager(
-                            count = prefTabs.size,
                             state = state
                         ) { index ->
                             val listState = rememberLazyListState()
@@ -175,7 +180,7 @@ class MainActivity : ComponentActivity() {
                                             }
                                         }
                                     StatusCardWidget(
-                                        isActive = isActive,
+                                        isActive = isActiveState.value,
                                         updates = updates,
                                         targetVersion = targetVersion
                                     ) {
@@ -183,7 +188,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                                     /* 关于 */ 4 -> {
-                                    AboutScreen(isActive)
+                                    AboutScreen(isActiveState.value)
                                 }
                                 }
                                 if (!listState.isScrollInProgress) {
@@ -202,25 +207,28 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        isActiveState.value = isModuleActive()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        FrameworkScopeState.addListener(scopeListener)
+    }
+
+    override fun onStop() {
+        FrameworkScopeState.removeListener(scopeListener)
+        super.onStop()
+    }
+
     companion object {
-        fun isModuleActive(context: Context) = runCatching {
-            queryLegacyActivation(context) || queryModuleHeartbeat()
-        }.getOrElse {
-            queryModuleHeartbeat()
+        fun isModuleActive(): Boolean {
+            FrameworkScopeState.isTargetAppScoped()?.let { return it }
+            return isLegacyHookActive()
         }
 
-        private fun queryLegacyActivation(context: Context): Boolean = runCatching {
-            val uri = Uri.parse("content://me.weishu.exposed.CP/")
-            context.contentResolver.call(uri, "active", null, null)?.getBoolean("active", false)
-                ?: false
-        }.getOrDefault(false)
-
-        private fun queryModuleHeartbeat(): Boolean = runCatching {
-            val active = Prefs.get<Boolean>(MODULE_ACTIVE_KEY, false) ?: false
-            val ts = Prefs.get<String>(MODULE_ACTIVE_TS_KEY, "0")?.toLongOrNull() ?: 0L
-            val source = Prefs.get<String>(MODULE_ACTIVE_SOURCE_KEY, "") ?: ""
-            active && source == TARGET_APP_ID && System.currentTimeMillis() - ts <= MODULE_ACTIVE_TTL_MS
-        }.getOrDefault(false)
+        private fun isLegacyHookActive(): Boolean = HookStatusImpl.sLegacyHookMode
 
         operator fun invoke(context: Context) = Intent().also {
             ComponentName(APPLICATION_ID, this::class.java.name.split("$")[0]).let(it::setComponent)

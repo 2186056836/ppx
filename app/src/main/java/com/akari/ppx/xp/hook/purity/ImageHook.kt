@@ -26,6 +26,7 @@ class ImageHook : SwitchHook("save_image") {
             val displayList = current.callMethodOrNullAs<List<*>>("getUrlList")
                 ?.takeIf { it.isNotEmpty() }
                 ?: return@replaceMethod param.invokeOriginalMethod()
+            val isGif = current.callMethodOrNullAs<Boolean>("isGif") == true
             val displayUrl = displayList.firstOrNull()
                 ?.callMethodOrNullAs<String>("getUrl")
                 ?.takeIf { it.isNotBlank() }
@@ -33,10 +34,14 @@ class ImageHook : SwitchHook("save_image") {
             val originalDownloadList = current.getObjectFieldOrNull("downloadList")
             val originalDownloadUrl = (originalDownloadList as? List<*>)?.firstOrNull()
                 ?.callMethodOrNullAs<String>("getUrl")
+            val shouldSwap = shouldSwapDownloadSource(isGif, displayUrl, originalDownloadUrl)
             Log.i(
-                "ImageHook swap download source index=$index " +
+                "ImageHook choose source index=$index isGif=$isGif swap=$shouldSwap " +
                     "download=$originalDownloadUrl display=$displayUrl"
             )
+            if (!shouldSwap) {
+                return@replaceMethod param.invokeOriginalMethod()
+            }
             try {
                 current.setObjectField("downloadList", ArrayList(displayList))
                 param.invokeOriginalMethod()
@@ -46,5 +51,28 @@ class ImageHook : SwitchHook("save_image") {
                 }.onFailure(Log::e)
             }
         }
+    }
+
+    private fun shouldSwapDownloadSource(
+        isGif: Boolean,
+        displayUrl: String,
+        originalDownloadUrl: String?
+    ): Boolean {
+        if (!isGif) {
+            return true
+        }
+        if (looksLikeAnimatedSource(displayUrl)) {
+            return true
+        }
+        Log.i(
+            "ImageHook keep original gif source " +
+                "download=$originalDownloadUrl display=$displayUrl"
+        )
+        return false
+    }
+
+    private fun looksLikeAnimatedSource(url: String): Boolean {
+        val lower = url.lowercase()
+        return lower.contains(".gif") || lower.contains("format=gif") || lower.contains("image/gif")
     }
 }

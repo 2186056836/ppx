@@ -1,32 +1,28 @@
-import com.android.build.gradle.internal.api.BaseVariantOutputImpl
-import de.fayard.refreshVersions.core.versionFor
+import org.gradle.api.tasks.Copy
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import java.io.ByteArrayOutputStream
 import java.util.*
 
 plugins {
     id("com.android.application")
     kotlin("android")
-    kotlin("kapt")
-    id("com.google.devtools.ksp")
 }
 
 val properties = Properties()
 properties.load(project.rootProject.file("local.properties").inputStream())
 
-val verCode = 20260429
-val verName = "26.04.29"
+val verCode = 20260503
+val verName = "26.05.03"
 
 android {
-    compileSdk = 32
+    compileSdk = 36
 
     namespace = "com.akari.ppx"
 
     defaultConfig {
         applicationId = "com.akari.ppx"
-        minSdk = 23
+        minSdk = 26
 
-        targetSdk = 32
+        targetSdk = 36
 
         versionCode = verCode
         versionName = verName
@@ -59,19 +55,20 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility(JavaVersion.VERSION_11)
-        targetCompatibility(JavaVersion.VERSION_11)
+        sourceCompatibility(JavaVersion.VERSION_17)
+        targetCompatibility(JavaVersion.VERSION_17)
     }
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
     }
     buildFeatures {
+        buildConfig = true
         compose = true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = versionFor(AndroidX.compose.ui)
+        kotlinCompilerExtensionVersion = "1.5.14"
     }
-    packagingOptions {
+    packaging {
         resources {
             merges += "META-INF/xposed/*"
             excludes += arrayOf(
@@ -89,27 +86,12 @@ android {
     }
 }
 
-kotlin {
-    sourceSets {
-        debug {
-            kotlin.srcDir("build/generated/ksp/debug/kotlin")
-        }
-        release {
-            kotlin.srcDir("build/generated/ksp/release/kotlin")
-        }
-    }
-}
-
-android.applicationVariants.all {
-    outputs.all {
-        (this as BaseVariantOutputImpl).outputFileName =
-            "皮皮虾助手-v${versionName}-release.apk"
-    }
-}
-
 dependencies {
     compileOnly(Libs.xposed_api)
     implementation(project(":xposed-modern-api101-entry"))
+    implementation("io.github.libxposed:service:101.0.0") {
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib")
+    }
     api(Libs.gson)
     implementation(AndroidX.dataStore.preferences)
     implementation(AndroidX.compose.material)
@@ -117,21 +99,17 @@ dependencies {
     implementation(AndroidX.appCompat)
     implementation(AndroidX.activity.compose)
     implementation(Google.android.material)
-    implementation(Google.accompanist.insets)
-    implementation(Google.accompanist.pager)
-    implementation(Google.accompanist.pager.indicators)
     implementation(Libs.reorderable)
     implementation(Libs.mp4parser)
 }
 
 tasks.withType<KotlinCompile>().configureEach {
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
         freeCompilerArgs = freeCompilerArgs + listOf(
             "-opt-in=androidx.compose.material.ExperimentalMaterialApi",
             "-opt-in=androidx.compose.animation.ExperimentalAnimationApi",
             "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi",
-            "-opt-in=com.google.accompanist.pager.ExperimentalPagerApi",
             "-opt-in=androidx.compose.ui.ExperimentalComposeUiApi"
         )
 
@@ -145,4 +123,15 @@ tasks.withType<KotlinCompile>().configureEach {
             )
         }
     }
+}
+
+val renameReleaseApk by tasks.registering(Copy::class) {
+    dependsOn("assembleRelease")
+    from(layout.buildDirectory.file("outputs/apk/release/app-release.apk"))
+    into(layout.buildDirectory.dir("outputs/release-dist"))
+    rename { "皮皮虾助手-v${verName}-release.apk" }
+}
+
+tasks.matching { it.name == "assembleRelease" }.configureEach {
+    finalizedBy(renameReleaseApk)
 }

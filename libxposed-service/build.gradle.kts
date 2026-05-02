@@ -3,8 +3,9 @@ plugins {
 }
 
 android {
-    namespace = "com.akari.ppx.xp.modern.api101"
+    namespace = "io.github.libxposed.service"
     compileSdk = 36
+    buildToolsVersion = "36.1.0"
 
     defaultConfig {
         minSdk = 26
@@ -17,9 +18,10 @@ android {
 
     buildFeatures {
         buildConfig = false
+        aidl = true
     }
 }
 
 dependencies {
-    compileOnly(Libs.libxposed_api)
+    compileOnly("androidx.annotation:annotation:1.9.1")
 }

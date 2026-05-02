@@ -17,14 +17,14 @@ import com.akari.ppx.xp.Init.enterPi2
 import com.akari.ppx.xp.Init.enterPi2Class
 import com.akari.ppx.xp.Init.feedCellUtilCompanionClass
 import com.akari.ppx.xp.hook.SwitchHook
-import java.lang.Enum.valueOf
 
 class CopyHook : SwitchHook("copy_item") {
     override fun onHook() {
-        val actionType = valueOf(
-            "com.sup.android.i_sharecontroller.model.OptionAction\$OptionActionType".findClass(cl) as Class<Enum<*>>,
-            "ACTION_PI"
-        )
+        val actionTypeClass =
+            "com.sup.android.i_sharecontroller.model.OptionAction\$OptionActionType".findClass(cl)
+        val actionType = actionTypeClass.enumConstants.firstOrNull {
+            (it as? Enum<*>)?.name == "ACTION_PI"
+        } ?: return
         feedCellUtilCompanionClass!!.replaceMethod(
             canShowActionPi(),
             absFeedCellClass

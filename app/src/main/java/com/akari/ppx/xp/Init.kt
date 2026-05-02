@@ -5,6 +5,7 @@ package com.akari.ppx.xp
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
+import android.content.pm.PackageInfo
 import android.os.Handler
 import android.view.MotionEvent
 import android.widget.ImageView
@@ -18,6 +19,7 @@ import com.akari.ppx.utils.findClass
 import com.akari.ppx.utils.Log
 import java.io.*
 import java.lang.ref.WeakReference
+import java.lang.reflect.Method
 import kotlin.math.max
 import kotlin.reflect.KProperty
 
@@ -39,6 +41,14 @@ object Init {
         }
         Log.i("Init myTabList=${cache["class_my_tab_list"]}#${cache["method_my_tab_list"]}")
         Log.i("Init myTabView=${cache["class_my_tab_view"]}#${cache["method_my_tab_view"]}")
+        Log.i(
+            "Init videoSave=${cache["class_video_download_helper"]}#" +
+                    "${cache["method_do_download"]}#" +
+                    "${cache["class_video_downLoad_config"]}#" +
+                    "${cache["method_download_video"]}#" +
+                    "${cache["method_has_download_video"]}#" +
+                    "${cache["method_enable_download_god_video"]}"
+        )
     }
 
     val safeModeApplicationClass by Weak {
@@ -265,54 +275,108 @@ object Init {
         return arrayOfNulls(2)
     }
 
+    private fun sameType(actual: Class<*>, expected: Class<*>): Boolean {
+        if (actual == expected) {
+            return true
+        }
+        val actualBoxed = when (actual) {
+            java.lang.Boolean.TYPE -> java.lang.Boolean::class.java
+            java.lang.Byte.TYPE -> java.lang.Byte::class.java
+            java.lang.Short.TYPE -> java.lang.Short::class.java
+            java.lang.Integer.TYPE -> java.lang.Integer::class.java
+            java.lang.Long.TYPE -> java.lang.Long::class.java
+            java.lang.Float.TYPE -> java.lang.Float::class.java
+            java.lang.Double.TYPE -> java.lang.Double::class.java
+            java.lang.Character.TYPE -> java.lang.Character::class.java
+            java.lang.Void.TYPE -> java.lang.Void::class.java
+            else -> actual
+        }
+        val expectedBoxed = when (expected) {
+            java.lang.Boolean.TYPE -> java.lang.Boolean::class.java
+            java.lang.Byte.TYPE -> java.lang.Byte::class.java
+            java.lang.Short.TYPE -> java.lang.Short::class.java
+            java.lang.Integer.TYPE -> java.lang.Integer::class.java
+            java.lang.Long.TYPE -> java.lang.Long::class.java
+            java.lang.Float.TYPE -> java.lang.Float::class.java
+            java.lang.Double.TYPE -> java.lang.Double::class.java
+            java.lang.Character.TYPE -> java.lang.Character::class.java
+            java.lang.Void.TYPE -> java.lang.Void::class.java
+            else -> expected
+        }
+        return actualBoxed == expectedBoxed
+    }
+
+    private fun Method.parametersMatch(vararg expected: Class<*>): Boolean {
+        if (parameterTypes.size != expected.size) {
+            return false
+        }
+        return parameterTypes.indices.all { index ->
+            sameType(parameterTypes[index], expected[index])
+        }
+    }
+
     private fun findVideoSaveClass(): Array<String?> {
         runCatching {
-            val helper = "com.sup.android.video.g".findClass(cl)
-            val config = "com.sup.android.video.f".findClass(cl)
+            fun findClassCompat(vararg names: String) = names.firstNotNullOfOrNull { name ->
+                runCatching { name.findClass(cl) }.getOrNull()
+            }
+            fun isBooleanType(name: String) = name == "boolean" || name == "java.lang.Boolean"
+
+            val helper = findClassCompat(
+                "com.sup.android.video.g",
+                "com.sup.android.video.VideoDownloadHelper"
+            ) ?: return arrayOfNulls(6)
+            val config = findClassCompat(
+                "com.sup.android.video.f",
+                "com.sup.android.video.VideoDownLoadConfig"
+            ) ?: return arrayOfNulls(6)
             val videoModelClass = "com.sup.android.base.model.VideoModel".findClass(cl)
             val downloadListenerClass =
                 "com.ss.android.socialbase.downloader.depend.IDownloadListener".findClass(cl)
-            val logCallbackClass = "com.sup.android.video.d".findClass(cl)
+            val logCallbackClass = findClassCompat(
+                "com.sup.android.video.d",
+                "com.sup.android.video.IVideoDownloadLogCallback"
+            ) ?: return arrayOfNulls(6)
             val function1Class = "kotlin.jvm.functions.Function1".findClass(cl)
             val methods = helper.declaredMethods
             val downloadEntryMethod = methods.find { m ->
-                m.parameterTypes.contentEquals(
-                    arrayOf(
-                        Context::class.java,
-                        videoModelClass,
-                        config,
-                        downloadListenerClass,
-                        Boolean::class.java,
-                        function1Class
-                    )
-                ) && m.returnType == Void.TYPE
+                m.returnType == Void.TYPE && m.parametersMatch(
+                    Context::class.java,
+                    videoModelClass,
+                    config,
+                    downloadListenerClass,
+                    videoModelClass,
+                    java.lang.Boolean.TYPE,
+                    function1Class
+                )
             }
             val downloadVideo = methods.find { m ->
-                m.parameterTypes.contentEquals(
-                    arrayOf(
-                        Activity::class.java,
-                        videoModelClass,
-                        config,
-                        downloadListenerClass,
-                        logCallbackClass,
-                        videoModelClass,
-                        Boolean::class.java,
-                        function1Class
-                    )
-                ) && m.returnType == Void.TYPE
+                m.returnType == Void.TYPE && m.parametersMatch(
+                    Activity::class.java,
+                    videoModelClass,
+                    config,
+                    downloadListenerClass,
+                    logCallbackClass,
+                    videoModelClass,
+                    java.lang.Boolean.TYPE,
+                    function1Class
+                )
             }
             val hasDownloadVideo = methods.find { m ->
-                m.parameterTypes.contentEquals(
-                    arrayOf(
-                        Context::class.java,
-                        videoModelClass,
-                        String::class.java
-                    )
-                ) && m.returnType == Boolean::class.java
+                m.parametersMatch(
+                    Context::class.java,
+                    videoModelClass,
+                    String::class.java
+                ) && isBooleanType(m.returnType.name)
             }
             val enableDownloadGodVideo = methods.find { m ->
-                m.parameterTypes.isEmpty() && m.returnType == Boolean::class.java
+                m.parameterTypes.isEmpty() && isBooleanType(m.returnType.name)
             }
+            Log.i(
+                "Init findVideoSaveClass helper=${helper.name} config=${config.name} " +
+                    "entry=${downloadEntryMethod?.name} final=${downloadVideo?.name} " +
+                    "has=${hasDownloadVideo?.name} gate=${enableDownloadGodVideo?.name}"
+            )
             if (downloadEntryMethod != null && downloadVideo != null && hasDownloadVideo != null && enableDownloadGodVideo != null) {
                 return arrayOf(
                     helper.name,
@@ -323,6 +387,7 @@ object Init {
                     enableDownloadGodVideo.name
                 )
             }
+            Log.w("Init findVideoSaveClass incomplete for helper=${helper.name}")
         }
         return arrayOfNulls(6)
     }
@@ -341,7 +406,7 @@ object Init {
             }
             val canShowActionPi = companion.declaredMethods.find { m ->
                 m.name == "ay" && m.parameterTypes.size == 1 && m.parameterTypes[0] == absFeedCellClass
-                        && m.returnType == Boolean::class.java
+                        && sameType(m.returnType, java.lang.Boolean.TYPE)
             }
             if (getVideoDownload != null && getAuthorInfo != null && canShowActionPi != null) {
                 return arrayOf(
@@ -466,7 +531,7 @@ object Init {
         }?.let { c ->
             c.declaredMethods.forEach { m ->
                 if (m.parameterTypes.size == 4 && m.parameterTypes[0] == String::class.java && m.parameterTypes[1].name == "com.sup.android.mi.feed.repo.bean.FeedResponse"
-                    && m.parameterTypes[2] == Boolean::class.java && m.parameterTypes[3] == Int::class.java
+                    && sameType(m.parameterTypes[2], java.lang.Boolean.TYPE) && sameType(m.parameterTypes[3], Int::class.java)
                 )
                     return arrayOf(c.name, m.name)
             }
@@ -504,21 +569,31 @@ object Init {
     }
 
     private fun findActionType1(): Array<String?> {
-        "com.sup.superb.feedui.docker.part.m".findClass(cl).let { c ->
+        classesList.filter {
+            it.startsWith("com.sup.superb.feedui.docker.part")
+        }.map {
+            it.findClass(cl)
+        }.forEach { c ->
             c.declaredMethods.find { m ->
-                m.name == "e" && m.parameterTypes.size == 1 && m.parameterTypes[0] == absFeedCellClass
-                        && m.returnType.name == "[Lcom.sup.android.i_sharecontroller.model.OptionAction\$OptionActionType;"
+                m.parameterTypes.size == 1 &&
+                    m.parameterTypes[0] == absFeedCellClass &&
+                    m.returnType.name == "[Lcom.sup.android.i_sharecontroller.model.OptionAction\$OptionActionType;"
             }?.let { return arrayOf(c.name, it.name) }
         }
         return arrayOfNulls(2)
     }
 
     private fun findActionType2(): Array<String?> {
-        "com.sup.android.detail.util.viewcontroller.b".findClass(cl).let { c ->
+        classesList.filter {
+            it.startsWith("com.sup.android.detail.util.viewcontroller")
+        }.map {
+            it.findClass(cl)
+        }.forEach { c ->
             c.declaredMethods.find { m ->
-                m.name == "a" && m.parameterTypes.size == 2 && m.parameterTypes[0] == absFeedCellClass
-                        && m.parameterTypes[1] == Boolean::class.java
-                        && m.returnType.name == "[Lcom.sup.android.i_sharecontroller.model.OptionAction\$OptionActionType;"
+                m.parameterTypes.size == 2 &&
+                    m.parameterTypes[0] == absFeedCellClass &&
+                    sameType(m.parameterTypes[1], java.lang.Boolean.TYPE) &&
+                    m.returnType.name == "[Lcom.sup.android.i_sharecontroller.model.OptionAction\$OptionActionType;"
             }?.let { return arrayOf(c.name, it.name) }
         }
         return arrayOfNulls(2)
@@ -754,7 +829,7 @@ object Init {
             key: K,
             value: () -> V
         ): MutableMap<K, V> {
-            if (!containsKey(key)) {
+            if (!containsKey(key) || get(key) == null) {
                 put(key, value())
                 needUpdate = true
             }
@@ -765,7 +840,7 @@ object Init {
             vararg keys: K,
             values: () -> Array<V>
         ): MutableMap<K, V> {
-            if (!keys.fold(true) { acc, key -> acc && containsKey(key) }) {
+            if (!keys.fold(true) { acc, key -> acc && containsKey(key) && get(key) != null }) {
                 putAll(keys.zip(values()))
                 needUpdate = true
             }
@@ -855,19 +930,22 @@ object Init {
         cl.allClassesList().asSequence()
     }
 
+    private fun packageLastUpdateTime(context: Context, packageName: String): Long {
+        val packageInfo: PackageInfo? = try {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageInfo(packageName, 0)
+        } catch (e: Throwable) {
+            null
+        }
+        return packageInfo?.lastUpdateTime ?: 0L
+    }
+
     private fun readCache(context: Context): MutableMap<String, String?> {
         try {
             val hookCache = File(context.cacheDir, CACHE_NAME)
             if (hookCache.isFile && hookCache.canRead()) {
-                val lastUpdateTime = context.packageManager.getPackageInfo(
-                    context.packageName,
-                    0
-                ).lastUpdateTime
-                val lastModuleUpdateTime = try {
-                    context.packageManager.getPackageInfo(APPLICATION_ID, 0)
-                } catch (e: Throwable) {
-                    null
-                }?.lastUpdateTime ?: 0
+                val lastUpdateTime = packageLastUpdateTime(context, context.packageName)
+                val lastModuleUpdateTime = packageLastUpdateTime(context, APPLICATION_ID)
                 val stream = ObjectInputStream(FileInputStream(hookCache))
                 val lastHookInfoUpdateTime = stream.readLong()
                 if (lastHookInfoUpdateTime >= lastUpdateTime && lastHookInfoUpdateTime >= lastModuleUpdateTime)
@@ -882,15 +960,8 @@ object Init {
     private fun writeCache(context: Context) {
         try {
             val hookCache = File(context.cacheDir, CACHE_NAME)
-            val lastUpdateTime = context.packageManager.getPackageInfo(
-                context.packageName,
-                0
-            ).lastUpdateTime
-            val lastModuleUpdateTime = try {
-                context.packageManager.getPackageInfo(APPLICATION_ID, 0)
-            } catch (e: Throwable) {
-                null
-            }?.lastUpdateTime ?: 0
+            val lastUpdateTime = packageLastUpdateTime(context, context.packageName)
+            val lastModuleUpdateTime = packageLastUpdateTime(context, APPLICATION_ID)
             if (hookCache.exists()) {
                 hookCache.delete()
             }
