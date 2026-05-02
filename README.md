@@ -27,8 +27,7 @@
 - `app/`：主模块源码
 - `xposed-modern-api101-entry/`：modern API 101 入口
 - `buildSrc/`：Gradle 版本与构建辅助
-- `docs/`：架构与适配分析文档
-- `tools/`：本地验证脚本
+- `tools/`：构建镜像同步脚本
 
 ## 构建
 
@@ -44,7 +43,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\sync-build-mirror.ps1
 
 Release APK 输出：
 
-- `app/build/outputs/apk/release/`
+- `app/build/outputs/release-dist/`
 
 ## 下载
 
